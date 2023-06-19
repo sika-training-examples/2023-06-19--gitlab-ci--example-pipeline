@@ -9,7 +9,8 @@ import (
 
 func index(w http.ResponseWriter, r *http.Request) {
 	hostname, _ := os.Hostname()
-	fmt.Fprintf(w, "%s %s\n", hello.Hello("from CI"), hostname)
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprintf(w, "<h1>%s %s</h1>\n", hello.Hello("from CI"), hostname)
 }
 
 func Server() {
