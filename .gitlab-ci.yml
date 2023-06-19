@@ -4,6 +4,7 @@ stages:
   - build
   - test
   - deploy dev
+  - deploy prod
 
 variables:
   IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA-$CI_PIPELINE_ID
@@ -62,3 +63,21 @@ stop dev:
   environment:
     name: dev-$CI_COMMIT_REF_SLUG
     action: stop
+
+deploy prod:
+  stage: deploy prod
+  needs:
+    - test
+    - build
+    - deploy dev
+  when: manual
+  script:
+    - helm upgrade --install $CI_ENVIRONMENT_SLUG
+      one-image --repo https://helm.sikalabs.io
+      --set image=$IMAGE
+      --set host=ci.physt.uk
+      --set containerPort=8000
+    - slu wait-for tls -a ci.physt.uk:443
+  environment:
+    name: prod
+    url: https://ci.physt.uk
