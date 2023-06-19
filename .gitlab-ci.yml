@@ -3,9 +3,11 @@ image: sikalabs/ci
 stages:
   - build
   - test
+  - deploy dev
 
 variables:
   IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA-$CI_PIPELINE_ID
+  HOST: $CI_COMMIT_REF_SLUG.ci.physt.uk
 
 build:
   stage: build
@@ -29,3 +31,34 @@ test:
   extends: .test
   script:
     - go test -race $(go list ./... | grep -v /vendor/)
+
+deploy dev:
+  stage: deploy dev
+  needs:
+    - test
+    - build
+  script:
+    - helm upgrade --install $CI_ENVIRONMENT_SLUG
+      one-image --repo https://helm.sikalabs.io
+      --set image=$IMAGE
+      --set host=$HOST
+      --set containerPort=8000
+    - slu wait-for tls -a $HOST:443
+  environment:
+    name: dev-$CI_COMMIT_REF_SLUG
+    url: https://$HOST
+    on_stop: stop dev
+
+stop dev:
+  needs:
+    - test
+    - build
+  stage: deploy dev
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - helm uninstall $CI_ENVIRONMENT_SLUG
+  when: manual
+  environment:
+    name: dev-$CI_COMMIT_REF_SLUG
+    action: stop
